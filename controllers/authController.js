@@ -2,6 +2,9 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+// ✅ Define secret ONCE and use everywhere
+const JWT_SECRET = process.env.JWT_SECRET || "kokoru_secret";
+
 /* =========================================================
    🟣 REGISTER USER
 ========================================================= */
@@ -9,16 +12,16 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, mobile, defaultAddress } = req.body;
 
-    // Check if user already exists
+    // 🔎 Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Encrypt password
+    // 🔒 Encrypt password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // 🧾 Create new user
     const newUser = new User({
       name,
       email,
@@ -29,14 +32,14 @@ exports.register = async (req, res) => {
 
     await newUser.save();
 
-    // Generate token
+    // 🪄 Generate JWT token
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email },
-      process.env.JWT_SECRET || "kokoru_secret",
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // Return user details
+    // ✅ Return user details (without password)
     res.status(201).json({
       message: "Signup successful",
       user: {
@@ -60,22 +63,37 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // 🔎 Find user
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // 🔑 Compare passwords
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ message: "Invalid password" });
 
+    // 🪄 Generate JWT token
     const token = jwt.sign(
       { id: user._id, email: user.email },
-      process.env.JWT_SECRET || "kokoru_secret",
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    res.json({ message: "Login successful", token, user });
+    // ✅ Return user + token
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        defaultAddress: user.defaultAddress,
+      },
+    });
   } catch (err) {
     console.error("❌ Login error:", err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error during login" });
   }
 };
 
@@ -84,6 +102,8 @@ exports.login = async (req, res) => {
 ========================================================= */
 exports.authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
+
+  // 🚫 No token provided
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
@@ -91,11 +111,14 @@ exports.authMiddleware = (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "kokoru_secret");
-    req.user = decoded; // { id, email }
+    // ✅ Verify token using same secret
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Attach user data to request
+    req.user = decoded; // contains { id, email }
     next();
   } catch (err) {
-    console.error("Invalid token:", err);
-    return res.status(401).json({ message: "Unauthorized: Invalid token" });
+    console.error("❌ Invalid token:", err.message);
+    return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
   }
 };
