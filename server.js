@@ -3,41 +3,47 @@ const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const os = require("os");
-
+const cors = require("cors");
 
 dotenv.config();
 connectDB();
 
 const app = express();
 
-const cors = require("cors");
-
-// ✅ Allow localhost (for local dev), production domain, and any Vercel preview
+/* =========================================================
+   🟣 Universal CORS Handler (Local + Vercel + Production)
+========================================================= */
 const allowedOrigins = [
-  "http://localhost:3000",                // local
-  "https://kokoru-frontend.vercel.app",   // main production frontend
+  "http://localhost:3000",               // Local development
+  "https://kokoru-frontend.vercel.app",  // Main production frontend
 ];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow Postman, mobile apps, etc.
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow Postman, mobile apps, or same-origin requests
+      if (!origin) return callback(null, true);
 
-    // ✅ Allow all *.vercel.app subdomains (preview deploys)
-    if (/\.vercel\.app$/.test(origin)) {
-      return callback(null, true);
-    }
+      // ✅ Allow all *.vercel.app subdomains (preview deploys)
+      if (origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
 
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+      // ✅ Allow explicitly listed origins
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-    console.log("❌ Blocked by CORS:", origin);
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-}));
+      console.log("❌ Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 
-// ✅ Auto-detect LAN IP dynamically
+/* =========================================================
+   🟢 Detect Local IP (for console display)
+========================================================= */
 function getLocalIP() {
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
@@ -53,10 +59,11 @@ function getLocalIP() {
 const localIP = getLocalIP();
 console.log(`🌐 Detected local IP: ${localIP}`);
 
-
 app.use(express.json());
 
-// ✅ Routes
+/* =========================================================
+   🧩 Routes
+========================================================= */
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
@@ -70,14 +77,13 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/image", imageProxyRoutes);
-app.use("/api/users", require("./routes/userRoutes"));
 
-// ✅ Root test
+// ✅ Root Test Endpoint
 app.get("/", (req, res) => {
   res.send("🌸 Kokoru backend is running perfectly!");
 });
 
-// ✅ Global Error handler
+// ✅ Global Error Handler
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err.stack);
   res.status(500).json({ message: "Internal server error" });
