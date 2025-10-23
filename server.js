@@ -77,6 +77,9 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/image", imageProxyRoutes);
+const adminRoutes = require("./routes/adminRoutes");
+app.use("/api/admin", adminRoutes);
+
 
 // ✅ Root Test Endpoint
 app.get("/", (req, res) => {
