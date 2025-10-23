@@ -5,16 +5,15 @@ const addressSchema = new mongoose.Schema({
   address: String,
 });
 
-const userSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    mobile: { type: String },
-    defaultAddress: { type: String },
-    addresses: [addressSchema], // ✅ added
-  },
-  { timestamps: true }
-);
+const userSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  password: String,
+  mobile: String,
+  defaultAddress: String,
+  addresses: Array,
+  isAdmin: { type: Boolean, default: false }, // 🟣 new
+});
+
 
 module.exports = mongoose.model("User", userSchema);
