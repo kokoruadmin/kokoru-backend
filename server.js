@@ -12,26 +12,30 @@ const app = express();
 
 const cors = require("cors");
 
+// ✅ Allow localhost (for local dev), production domain, and any Vercel preview
 const allowedOrigins = [
-  "http://localhost:3000",                        // for local dev
-  "https://kokoru-frontend.vercel.app",           // your Vercel production frontend
-  "https://kokoru-frontend-pk3vybdkw-kokoru.vercel.app" // preview link
+  "http://localhost:3000",                // local
+  "https://kokoru-frontend.vercel.app",   // main production frontend
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // allow Postman, mobile apps, etc.
+
+    // ✅ Allow all *.vercel.app subdomains (preview deploys)
+    if (/\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
-    } else {
-      console.log("❌ Blocked by CORS:", origin);
-      return callback(new Error("Not allowed by CORS"));
     }
+
+    console.log("❌ Blocked by CORS:", origin);
+    return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
 }));
-
 
 // ✅ Auto-detect LAN IP dynamically
 function getLocalIP() {
