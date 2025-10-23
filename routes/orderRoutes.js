@@ -2,21 +2,35 @@
 const express = require("express");
 const router = express.Router();
 const Order = require("../models/Order");
-const { sendMail } = require("../utils/mailer"); // ✅ NEW import
+const { sendMail } = require("../utils/mailer");
+const { authMiddleware } = require("../controllers/authController");
 
 /* =========================================================
-   🟣 GET all orders (supports ?q=search, ?from, ?to)
+   🟣 GET all orders (only logged-in user's orders)
 ========================================================= */
-router.get("/", async (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
   try {
     const { from, to, q } = req.query;
-    const filter = {};
+    const user = req.user;
 
+    if (!user?.email) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const filter = {
+      userEmail: user.email,
+    };
+
+    // 🟡 optional filters
     if (q) {
-      filter.$or = [
-        { "address.address": { $regex: q, $options: "i" } },
-        { customerName: { $regex: q, $options: "i" } },
-        { userEmail: { $regex: q, $options: "i" } },
+      filter.$and = [
+        { userEmail: user.email },
+        {
+          $or: [
+            { "address.address": { $regex: q, $options: "i" } },
+            { customerName: { $regex: q, $options: "i" } },
+          ],
+        },
       ];
     }
 
@@ -35,21 +49,31 @@ router.get("/", async (req, res) => {
 });
 
 /* =========================================================
-   🟢 GET single order
+   🟢 GET single order (only user's own order)
 ========================================================= */
-router.get("/:id", async (req, res) => {
+router.get("/:id", authMiddleware, async (req, res) => {
   try {
+    const user = req.user;
+    if (!user?.email) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: "Order not found" });
+
+    if (order.userEmail !== user.email) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     res.json(order);
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error fetching order:", err);
     res.status(500).json({ message: "Error fetching order" });
   }
 });
 
 /* =========================================================
-   ➕ POST create new order (used by admin)
+   ➕ POST create new order (admin use)
 ========================================================= */
 router.post("/", async (req, res) => {
   try {
@@ -137,7 +161,7 @@ router.patch("/:id/status", async (req, res) => {
         console.log(`📧 Admin notified about status update for ${order._id}`);
       }
 
-      // 📬 Notify Customer (if email available)
+      // 📬 Notify Customer
       if (order.userEmail) {
         await sendMail({
           to: order.userEmail,
