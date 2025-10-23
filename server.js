@@ -2,13 +2,36 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
-const cors = require("cors");
 const os = require("os");
+
 
 dotenv.config();
 connectDB();
 
 const app = express();
+
+const cors = require("cors");
+
+const allowedOrigins = [
+  "http://localhost:3000",                        // for local dev
+  "https://kokoru-frontend.vercel.app",           // your Vercel production frontend
+  "https://kokoru-frontend-pk3vybdkw-kokoru.vercel.app" // preview link
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.log("❌ Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
 
 // ✅ Auto-detect LAN IP dynamically
 function getLocalIP() {
@@ -26,25 +49,6 @@ function getLocalIP() {
 const localIP = getLocalIP();
 console.log(`🌐 Detected local IP: ${localIP}`);
 
-// ✅ Allow both localhost and LAN IP for frontend
-const allowedOrigins = [
-  `http://localhost:3000`,
-  `http://${localIP}:3000`
-];
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn("❌ Blocked by CORS:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
 
 app.use(express.json());
 
