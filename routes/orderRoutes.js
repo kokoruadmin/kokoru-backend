@@ -4,6 +4,7 @@ const router = express.Router();
 const Order = require("../models/Order");
 const { sendMail } = require("../utils/mailer");
 const { authMiddleware } = require("../controllers/authController");
+const adminAuth = require("../middleware/adminAuth"); // new middleware
 
 /* =========================================================
    🟣 GET all orders (only logged-in user's orders)
@@ -73,7 +74,37 @@ router.get("/:id", authMiddleware, async (req, res) => {
 });
 
 /* =========================================================
-   ➕ POST create new order (admin use)
+   🟢 GET all orders (Admin Access)
+========================================================= */
+router.get("/admin/all", adminAuth, async (req, res) => {
+  try {
+    const { from, to, q } = req.query;
+    const filter = {};
+
+    if (q) {
+      filter.$or = [
+        { "address.address": { $regex: q, $options: "i" } },
+        { customerName: { $regex: q, $options: "i" } },
+        { userEmail: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    if (from || to) {
+      filter.createdAt = {};
+      if (from) filter.createdAt.$gte = new Date(from);
+      if (to) filter.createdAt.$lte = new Date(to);
+    }
+
+    const orders = await Order.find(filter).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    console.error("❌ Error fetching all orders (admin):", err);
+    res.status(500).json({ message: "Error fetching orders" });
+  }
+});
+
+/* =========================================================
+   ➕ POST create new order (admin or system use)
 ========================================================= */
 router.post("/", async (req, res) => {
   try {
@@ -87,7 +118,8 @@ router.post("/", async (req, res) => {
 });
 
 /* =========================================================
-   🧪 POST create dummy order (for testing)
+   🧪 POST create dummy order (testing only)
+   (you told me dummy button removed in UI; route remains if you want)
 ========================================================= */
 router.post("/dummy", async (req, res) => {
   try {
@@ -118,17 +150,17 @@ router.post("/dummy", async (req, res) => {
 });
 
 /* =========================================================
-   ✏️ PATCH update order status (admin use)
+   ✏️ PATCH update order status (admin only)
 ========================================================= */
-router.patch("/:id/status", async (req, res) => {
+router.patch("/:id/status", adminAuth, async (req, res) => {
   try {
     const { status } = req.body;
-    if (!status)
+    if (!status) {
       return res.status(400).json({ message: "Status field is required" });
+    }
 
     const order = await Order.findById(req.params.id);
-    if (!order)
-      return res.status(404).json({ message: "Order not found" });
+    if (!order) return res.status(404).json({ message: "Order not found" });
 
     const oldStatus = order.status;
     order.status = status;
@@ -171,9 +203,7 @@ router.patch("/:id/status", async (req, res) => {
             <p>Your order <strong>${order._id}</strong> status has been updated to <strong>${status}</strong>.</p>
             <p>Thank you for shopping with <strong>Kokoru</strong> 🌸</p>
           `,
-        }).catch((err) =>
-          console.error("⚠️ Failed to notify customer:", err.message)
-        );
+        }).catch((err) => console.error("⚠️ Failed to notify customer:", err.message));
       }
     } catch (mailErr) {
       console.error("❌ Failed to send notification emails:", mailErr);
