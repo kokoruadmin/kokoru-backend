@@ -32,8 +32,19 @@ exports.createProduct = async (req, res) => {
     const body = req.body || {};
     // normalize if admin sends color/sizes JSON
     if (body.colors) body.colors = normalizeColors(body.colors);
+    const productData = { ...body };
 
-    const product = new Product(body);
+// ensure backward compatibility
+if (!productData.ourPrice && body.price) productData.ourPrice = body.price;
+
+// auto-calculate mrp if missing
+if (productData.ourPrice && productData.discount && !productData.mrp) {
+  const factor = 1 - productData.discount / 100;
+  if (factor > 0) productData.mrp = Math.round(productData.ourPrice / factor);
+}
+
+const product = new Product(productData);
+
     await product.save();
     res.status(201).json(product);
   } catch (error) {
@@ -45,10 +56,14 @@ exports.createProduct = async (req, res) => {
 // 📦 Get all products
 exports.getProducts = async (req, res) => {
   try {
-    const products = await Product.find();
+    const products = await Product.find()
+      .select("-__v") // hides the version field
+      .lean();        // makes it return plain JS objects
+
     res.json(products);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.error("Get all products error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -78,10 +93,16 @@ exports.updateProduct = async (req, res) => {
   try {
     const body = req.body || {};
     if (body.colors) body.colors = normalizeColors(body.colors);
+    const productData = { ...body };
 
-    const updated = await Product.findByIdAndUpdate(req.params.id, body, {
-      new: true,
-    });
+    if (!productData.ourPrice && body.price) productData.ourPrice = body.price;
+    if (productData.ourPrice && productData.discount && !productData.mrp) {
+      const factor = 1 - productData.discount / 100;
+      if (factor > 0) productData.mrp = Math.round(productData.ourPrice / factor);
+    }
+
+const updated = await Product.findByIdAndUpdate(id, productData, { new: true });
+
 
     if (!updated)
       return res.status(404).json({ message: "Product not found" });

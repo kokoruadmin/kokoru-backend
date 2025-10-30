@@ -37,21 +37,47 @@ function normalizeColors(inputColors = []) {
 ========================================================= */
 router.post("/", async (req, res) => {
   try {
-    console.log("🟢 Create product request:", req.body);
-
     const body = req.body || {};
-    if (body.colors) body.colors = normalizeColors(body.colors);
+    // If an authenticated user exists on the request (e.g., via auth middleware),
+    // prefer that name for customerName. Many flows create orders without auth,
+    // so we preserve body values when not present.
+    // If you want orders to require auth, put authMiddleware here instead.
+    const newOrder = new Order(body);
 
-    const product = new Product(body);
-    const savedProduct = await product.save();
+    // If req.user is present (authMiddleware was used upstream), prefer that name/email
+    if (req.user) {
+      newOrder.userEmail = req.user.email || newOrder.userEmail;
+      newOrder.customerName = req.user.name || req.user.fullName || newOrder.customerName || "Customer";
+      newOrder.userId = req.user._id || newOrder.userId;
+    } else {
+      // fallback: if body contains userEmail, use it; if body has customerName use it
+      newOrder.customerName = newOrder.customerName || "Customer";
+    }
 
-    console.log("✅ Product created:", savedProduct._id);
-    res.status(201).json(savedProduct);
-  } catch (error) {
-    console.error("❌ Error creating product:", error);
-    res.status(400).json({ message: error.message });
+    const saved = await newOrder.save();
+
+    // send confirmation email to customer if email present
+    try {
+      const { sendMail } = require("../utils/mailer");
+      if (saved.userEmail) {
+        await sendMail({
+          to: saved.userEmail,
+          subject: `Order Confirmation - ${saved._id}`,
+          html: `<p>Dear ${saved.customerName || "Customer"},</p>
+                <p>Thank you for your order. Your order ID is <strong>${saved._id}</strong>.</p>`
+        }).catch((e)=>console.error("Mail send failed:", e.message));
+      }
+    } catch (mailErr) {
+      console.error("Mailer issue:", mailErr);
+    }
+
+    res.status(201).json(saved);
+  } catch (err) {
+    console.error("❌ Error creating order:", err);
+    res.status(500).json({ message: "Error creating order" });
   }
 });
+
 
 /* =========================================================
    🟣 UPDATE PRODUCT

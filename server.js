@@ -69,6 +69,14 @@ app.use("/api/users", userRoutes);
 app.use("/api/image", imageProxyRoutes);
 app.use("/api/admin", adminRoutes);
 
+
+const reviewRoutes = require("./routes/reviewRoutes");
+app.use("/api/reviews", reviewRoutes);
+
+const pincodeRoutes = require("./routes/pincodeRoutes");
+app.use("/api/pincode", pincodeRoutes);
+
+
 /* =========================================================
    🧭 Root Endpoint
 ========================================================= */
