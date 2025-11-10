@@ -1,8 +1,14 @@
 const mongoose = require("mongoose");
 
 const addressSchema = new mongoose.Schema({
-  label: String,
-  address: String,
+  name: { type: String, default: '' },
+  label: { type: String, default: 'Other' },
+  address: { type: String, default: '' },
+  pincode: { type: String, default: '' },
+  mobile: { type: String, default: '' },
+  place: { type: String, default: '' },
+  district: { type: String, default: '' },
+  state: { type: String, default: '' },
 });
 
 const userSchema = new mongoose.Schema({
@@ -11,7 +17,8 @@ const userSchema = new mongoose.Schema({
   password: String,
   mobile: String,
   defaultAddress: String,
-  addresses: Array,
+  // store addresses as subdocuments so each gets an _id
+  addresses: [addressSchema],
   isAdmin: { type: Boolean, default: false }, // 🟣 new
 });
 

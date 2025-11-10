@@ -1,15 +1,25 @@
 const express = require("express");
 const router = express.Router();
-const reviewController = require("../controllers/reviewController");
-const { authMiddleware } = require("../controllers/authController"); // your existing auth middleware
+const {
+  createReview,
+  getReviewsForProduct,
+  getReviewStats,
+  getAllReviews,
+  deleteReview,
+} = require("../controllers/reviewController");
+const { authMiddleware, adminMiddleware } = require("../controllers/authController");
 
-// Public: get reviews for product
-router.get("/product/:productId", reviewController.getReviewsForProduct);
+// 🟢 Create Review (authenticated)
+router.post("/:productId", authMiddleware, createReview);
 
-// Public: basic stats
-router.get("/stats/:productId", reviewController.getReviewStats);
+// 🟣 Get Reviews for Product (public)
+router.get("/product/:productId", getReviewsForProduct);
 
-// Protected: create review (only logged in users)
-router.post("/:productId", authMiddleware, reviewController.createReview);
+// 🟡 Get Review Stats (public)
+router.get("/stats/:productId", getReviewStats);
+
+// 🟣 Admin-only routes
+router.get("/", authMiddleware, adminMiddleware, getAllReviews);
+router.delete("/:id", authMiddleware, adminMiddleware, deleteReview);
 
 module.exports = router;

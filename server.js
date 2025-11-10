@@ -60,6 +60,9 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const imageProxyRoutes = require("./routes/imageProxy");
 const adminRoutes = require("./routes/adminRoutes");
+const couponRoutes = require("./routes/couponRoutes");
+const pincodeProxy = require("./routes/pincodeProxy");
+const devRoutes = require("./routes/devRoutes");
 
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
@@ -68,6 +71,13 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/image", imageProxyRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/coupons", couponRoutes);
+app.use("/api/pincode", pincodeProxy);
+app.use("/api/stock", require("./routes/stockRoutes"));
+
+// Development helpers (safe-guarded inside route)
+app.use("/api/dev", devRoutes);
+
 
 
 const reviewRoutes = require("./routes/reviewRoutes");
@@ -103,6 +113,8 @@ app.use((err, req, res, next) => {
    🚀 Start Server
 ========================================================= */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () =>
+// Bind to 0.0.0.0 to ensure the server is reachable via localhost and LAN IPs
+app.listen(PORT, '0.0.0.0', () =>
   console.log(`🚀 Server running on http://${localIP}:${PORT}`)
 );
+

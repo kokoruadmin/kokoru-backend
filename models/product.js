@@ -49,6 +49,7 @@ const ProductSchema = new mongoose.Schema(
     offerText: { type: String },
     avgRating: { type: Number, default: 0 },
     reviewsCount: { type: Number, default: 0 },
+    sold: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

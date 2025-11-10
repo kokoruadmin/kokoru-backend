@@ -4,6 +4,9 @@ const {
   getAddresses,
   addAddress,
   deleteAddress,
+  updateAddress,
+  validateAddress,
+  normalizeAddresses,
   authMiddleware,
 } = require("../controllers/userController");
 const User = require("../models/User");
@@ -14,6 +17,9 @@ const User = require("../models/User");
 router.get("/addresses", authMiddleware, getAddresses);
 router.post("/addresses", authMiddleware, addAddress);
 router.delete("/addresses/:id", authMiddleware, deleteAddress);
+router.patch("/addresses/:id", authMiddleware, updateAddress);
+router.post("/addresses/validate", authMiddleware, validateAddress);
+router.post("/addresses/normalize", authMiddleware, normalizeAddresses);
 
 /* =========================================================
    👤 USER PROFILE & ACCOUNT ROUTES (NEW)
