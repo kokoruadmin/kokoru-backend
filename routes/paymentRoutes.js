@@ -2,6 +2,7 @@
 const express = require("express");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const Product = require("../models/product");
 const Order = require("../models/Order");
 const { sendMail } = require("../utils/mailer");
@@ -44,7 +45,7 @@ router.post("/verify", async (req, res) => {
   } = req.body;
 
   try {
-    // verify signature
+  // verify signature
     const body = (razorpay_order_id || "") + "|" + (razorpay_payment_id || "");
     const expected = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET).update(body).digest("hex");
     if (expected !== razorpay_signature) return res.status(400).json({ success: false, message: "Invalid payment signature" });
@@ -81,6 +82,29 @@ router.post("/verify", async (req, res) => {
         if (qty > product.stock) return res.status(400).json({ success: false, message: `Not enough stock for ${product.name}.` });
         if (qty > maxOrder) return res.status(400).json({ success: false, message: `Max allowed per order for ${product.name} is ${maxOrder}` });
       }
+    }
+
+    // If frontend didn't include userEmail (or for extra safety), try to extract from Authorization JWT token so
+    // orders created by logged-in users are always associated with their account. This is a non-breaking enhancement
+    // and will not error if no token is present.
+    try {
+      const auth = req.headers.authorization;
+      if ((!userEmail || !String(userEmail).trim()) && auth && auth.startsWith("Bearer ")) {
+        try {
+          const decoded = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET || "kokoru_secret");
+          if (decoded && decoded.email) {
+            // prefer decoded email when frontend did not send userEmail
+            userEmail = decoded.email;
+          }
+          if ((!customerName || !String(customerName).trim()) && decoded && decoded.name) {
+            customerName = decoded.name;
+          }
+        } catch (e) {
+          // ignore invalid token — we'll continue using provided values
+        }
+      }
+    } catch (e) {
+      // swallow
     }
 
     // create order record (payment succeeded). stockAllocated remains false until admin confirms

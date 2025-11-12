@@ -40,7 +40,7 @@ exports.getAddresses = async (req, res) => {
     // Combine default address with saved addresses
     const allAddresses = [];
 
-    if (user.defaultAddress) {
+  if (user.defaultAddress) {
       // try to parse pincode if stored in the defaultAddress string (format: '...\nPincode: 123456')
       let parsed = { address: user.defaultAddress, pincode: "", place: "", district: "", state: "" };
       try {
@@ -60,6 +60,11 @@ exports.getAddresses = async (req, res) => {
         place: parsed.place,
         district: parsed.district,
         state: parsed.state,
+        mobile: parsed.mobile || user.mobile || "",
+        alternateMobile: parsed.alternateMobile || "",
+        landmark: parsed.landmark || "",
+        email: parsed.email || user.email || "",
+        name: parsed.name || user.name || "",
         isDefault: true,
       });
     }
@@ -85,7 +90,7 @@ exports.addAddress = async (req, res) => {
     if (!address || typeof address !== "object")
       return res.status(400).json({ message: "Address payload must be an object" });
 
-    const { address: addrText, pincode, mobile } = address;
+    const { address: addrText, pincode, mobile, alternateMobile, landmark, email, name } = address;
     if (!addrText || !String(addrText).trim())
       return res.status(400).json({ message: "Address text is required" });
 
@@ -105,11 +110,14 @@ exports.addAddress = async (req, res) => {
 
     // build address object storing supplied fields
     const toSave = {
-      name: address.name || user.name || '',
+      name: name || address.name || user.name || '',
       label: label || "Other",
       address: addrText,
       pincode: pin,
       mobile: mobileDigits,
+      alternateMobile: String(alternateMobile || address.alternateMobile || '').replace(/\D/g, '') || '',
+      landmark: landmark || address.landmark || '',
+      email: email || address.email || user.email || '',
       place: address.place || "",
       district: address.district || "",
       state: address.state || "",
@@ -251,6 +259,9 @@ exports.updateAddress = async (req, res) => {
       address: address.address,
       pincode: pin,
       mobile: mobileDigits,
+      alternateMobile: String(address.alternateMobile || existing.alternateMobile || '').replace(/\D/g, ''),
+      landmark: address.landmark || existing.landmark || '',
+      email: address.email || existing.email || user.email || '',
       place: address.place || existing.place || '',
       district: address.district || existing.district || '',
       state: address.state || existing.state || '',
@@ -312,6 +323,9 @@ exports.normalizeAddresses = async (req, res) => {
           address: a,
           pincode: '',
           mobile: user.mobile || '',
+          alternateMobile: '',
+          landmark: '',
+          email: user.email || '',
           place: '',
           district: '',
           state: '',
@@ -324,6 +338,9 @@ exports.normalizeAddresses = async (req, res) => {
         address: a.address || '',
         pincode: a.pincode || '',
         mobile: a.mobile || user.mobile || '',
+        alternateMobile: a.alternateMobile || '',
+        landmark: a.landmark || '',
+        email: a.email || user.email || '',
         place: a.place || '',
         district: a.district || '',
         state: a.state || '',
@@ -337,5 +354,37 @@ exports.normalizeAddresses = async (req, res) => {
   } catch (err) {
     console.error('❌ normalizeAddresses error:', err);
     return res.status(500).json({ message: 'Failed to normalize addresses' });
+  }
+};
+
+// 🟣 Set an existing saved address as the user's defaultAddress
+exports.setDefaultAddress = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(req.user?.id || req.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!id) return res.status(400).json({ message: 'Address id required' });
+
+    // support special 'default' id which clears the defaultAddress
+    if (String(id) === 'default') {
+      user.defaultAddress = '';
+      await user.save();
+      return res.json({ message: 'Default address cleared', defaultAddress: user.defaultAddress });
+    }
+
+    // find address by _id
+    const found = (user.addresses || []).find((a) => a && a._id && String(a._id) === String(id));
+    if (!found) return res.status(404).json({ message: 'Address not found' });
+
+    // Use a concise, human-readable defaultAddress string (address + pincode if present)
+    const addrStr = (String(found.address || '').trim() + (found.pincode ? `\nPincode: ${String(found.pincode).trim()}` : '')).trim();
+    user.defaultAddress = addrStr;
+    await user.save();
+
+    return res.json({ message: 'Default address set', defaultAddress: user.defaultAddress });
+  } catch (err) {
+    console.error('❌ setDefaultAddress error:', err);
+    return res.status(500).json({ message: 'Failed to set default address' });
   }
 };

@@ -21,6 +21,11 @@ const OrderSchema = new mongoose.Schema(
       place: { type: String },
       district: { type: String },
       state: { type: String },
+      mobile: { type: String },
+      alternateMobile: { type: String },
+      landmark: { type: String },
+      email: { type: String },
+      name: { type: String },
     },
 
     items: [OrderItemSchema],
