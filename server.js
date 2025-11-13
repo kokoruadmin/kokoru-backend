@@ -61,6 +61,8 @@ const userRoutes = require("./routes/userRoutes");
 const imageProxyRoutes = require("./routes/imageProxy");
 const adminRoutes = require("./routes/adminRoutes");
 const couponRoutes = require("./routes/couponRoutes");
+const offerRoutes = require("./routes/offerRoutes");
+const promotionRoutes = require("./routes/promotionRoutes");
 const pincodeProxy = require("./routes/pincodeProxy");
 const devRoutes = require("./routes/devRoutes");
 
@@ -72,6 +74,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/image", imageProxyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/coupons", couponRoutes);
+app.use("/api/offers", offerRoutes);
+app.use("/api/promotions", promotionRoutes);
 app.use("/api/pincode", pincodeProxy);
 app.use("/api/stock", require("./routes/stockRoutes"));
 
